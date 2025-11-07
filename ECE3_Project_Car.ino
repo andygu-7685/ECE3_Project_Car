@@ -1,10 +1,6 @@
 #include <ECE3.h>
 String dummy;
-<<<<<<< HEAD
-//testtest
-//testtest new
-=======
->>>>>>> 23bbe198b49f270f10c7671786b847e523328029
+
 
 //----------------------------------------------------------------------------------
 //Calibration
@@ -14,19 +10,19 @@ uint16_t minVal[8] = {0};
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
 int16_t weightVal[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 
-int number_samples = 5;
+const int number_samples = 5;
 bool print_directions = true;
 
 //S1 button
-int right_btn_pin = 73;
-int btn_press_time = 0;
+const int right_btn_pin = 73;
+unsigned long btn_press_time = 0;
 bool calibrate = false;
 //----------------------------------------------------------------------------------
 
 
 
 //----------------------------------------------------------------------------------
-//Wheel
+//Wheel Proportional Control
 const int left_nslp_pin = 31;
 const int left_dir_pin = 29;
 const int left_pwm_pin = 40;
@@ -43,6 +39,14 @@ int base_pwm_speed = 10;
 //false == left
 bool car_dir = true;
 //----------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------
+//Wheel Derivative Control
+unsigned long delta_time = 0;
+unsigned long last_delta_time = 0;
+
+
+
 
 void setup()
 {
@@ -100,8 +104,8 @@ void loop()
   }
 
   //wait for user input
-  while (Serial.available() == 0) {}
-  dummy = Serial.readString();
+  // while (Serial.available() == 0) {}
+  // dummy = Serial.readString();
   //-------------------------------------------------------------------------------------------------------------
 
 
@@ -137,10 +141,10 @@ void loop()
     //the last operation should always be division, because value less than 1 can be cast to 0 in int, if not handled correctly
     //the divide by 8 is for weighting purpose
     weighted_sum += (weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000) / (8 * (maxVal[i] - minVal[i]));
-    Serial.print(weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000 /(8 * (maxVal[i] - minVal[i])));
-    Serial.print('\t'); 
+    // Serial.print(weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000 /(8 * (maxVal[i] - minVal[i])));
+    // Serial.print('\t'); 
   }
-  Serial.println();
+  //Serial.println();
   //-------------------------------------------------------------------------------------------------------------
   
 
@@ -164,6 +168,9 @@ void loop()
   else{
     right_pwm_state += _p;
   }
+
+  delta_time = micros() - last_delta_time;
+  last_delta_time = micros();
   //-------------------------------------------------------------------------------------------------------------
 
 
