@@ -5,8 +5,10 @@ String dummy;
 //----------------------------------------------------------------------------------
 //Calibration
 uint16_t sensorValues[8];
-uint16_t maxVal[8] = {2500,	2297,	2500,	2500,	2248,	2500,	2500,	2500};
-uint16_t minVal[8] = {619,	573,	641,	688,	619,	688,	757,	828};
+// uint16_t maxVal[8] = {2500,	2297,	2500,	2500,	2248,	2500,	2500,	2500};
+// uint16_t minVal[8] = {619,	573,	641,	688,	619,	688,	757,	828};
+uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
+uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
 int16_t weightVal[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 
@@ -143,10 +145,10 @@ void loop()
     //the last operation should always be division, because value less than 1 can be cast to 0 in int, if not handled correctly
     //the divide by 8 is for weighting purpose
     weighted_sum += (weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000) / (8 * (maxVal[i] - minVal[i]));
-    Serial.print(weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000 /(8 * (maxVal[i] - minVal[i])));
-    Serial.print('\t'); 
+    // Serial.print(weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000 /(8 * (maxVal[i] - minVal[i])));
+    // Serial.print('\t'); 
   }
-  Serial.println();
+  //Serial.println();
   //-------------------------------------------------------------------------------------------------------------
   
 
@@ -159,23 +161,23 @@ void loop()
   //true == right
   //false == left
   car_dir = (avg_error < 0);
-  int _p = abs(avg_error * 45 / 350);
+  int _p = abs(avg_error * 60 / 350);
 
   delta_time = micros() - last_delta_time;
   delta_error = avg_error - last_error;
-  float _d = abs(delta_error * 10000 / delta_time);
+  float _d = 0*abs(delta_error * 80000 / delta_time);
 
   last_delta_time = micros();
   last_error = avg_error;
   
-  Serial.print("_d: ");
-  Serial.print(_d);
-  Serial.print('\t');
-  Serial.print(delta_error);
-  Serial.print('\t');
-  Serial.print(delta_time/10000);
-  Serial.print('\t');
-  Serial.println();
+  // Serial.print("_d: ");
+  // Serial.print(_d);
+  // Serial.print('\t');
+  // Serial.print(delta_error);
+  // Serial.print('\t');
+  // Serial.print(delta_time/10000);
+  // Serial.print('\t');
+  // Serial.println();
 
   if(car_dir){
     left_pwm_state = base_pwm_speed + _p - _d;
@@ -209,6 +211,8 @@ bool calibration_function(){
   unsigned long press_start = micros();
   unsigned long press_duration = 0;
   digitalWrite(red_led_pin, HIGH);  //led indicator is on during calibration
+  analogWrite(left_pwm_pin, 0);
+  analogWrite(right_pwm_pin, 0);
 
   for (unsigned char i = 0; i < 21; i++) {
 
@@ -217,6 +221,11 @@ bool calibration_function(){
       //check if the button was released
       if(press_duration != 0 && digitalRead(right_btn_pin) == HIGH){
         press_duration = 0;
+      }
+      if(Serial.available() != 0){
+        dummy = Serial.readString();
+        press_duration = 0;
+        break;
       }
     }
 
@@ -257,6 +266,7 @@ bool calibration_function(){
       int mean_value = summed_values[j] / number_samples;
       if(_maxVal[j] == 0 || mean_value > _maxVal[j]) _maxVal[j] = mean_value;
       if(_minVal[j] == 0 || mean_value < _minVal[j]) _minVal[j] = mean_value;
+      weighted_sum += (weightVal[i] * ((summed_values[j] / number_samples) - minVal[i]) * 1000) / (8 * (maxVal[i] - minVal[i]));
       Serial.print(summed_values[j] / number_samples);
       Serial.print('\t'); 
     }
