@@ -5,10 +5,16 @@ String dummy;
 //----------------------------------------------------------------------------------
 //Calibration
 uint16_t sensorValues[8];
+//Lab
 // uint16_t maxVal[8] = {2500,	2297,	2500,	2500,	2248,	2500,	2500,	2500};
 // uint16_t minVal[8] = {619,	573,	641,	688,	619,	688,	757,	828};
-uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
-uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
+//Apartment
+// uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
+// uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
+//PCC
+uint16_t maxVal[8] = {2059, 1935, 2013, 2050, 1914, 1871, 1986, 2391};
+uint16_t minVal[8] = {750, 683, 723, 775, 694, 702, 771,	823};
+
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
 int16_t weightVal[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 
@@ -165,7 +171,7 @@ void loop()
 
   delta_time = micros() - last_delta_time;
   delta_error = avg_error - last_error;
-  float _d = 0*abs(delta_error * 80000 / delta_time);
+  float _d = abs(delta_error * 8000 / delta_time);
 
   last_delta_time = micros();
   last_error = avg_error;
@@ -266,7 +272,7 @@ bool calibration_function(){
       int mean_value = summed_values[j] / number_samples;
       if(_maxVal[j] == 0 || mean_value > _maxVal[j]) _maxVal[j] = mean_value;
       if(_minVal[j] == 0 || mean_value < _minVal[j]) _minVal[j] = mean_value;
-      weighted_sum += (weightVal[i] * ((summed_values[j] / number_samples) - minVal[i]) * 1000) / (8 * (maxVal[i] - minVal[i]));
+      //weighted_sum += (weightVal[i] * ((summed_values[j] / number_samples) - minVal[i]) * 1000) / (8 * (maxVal[i] - minVal[i]));
       Serial.print(summed_values[j] / number_samples);
       Serial.print('\t'); 
     }
