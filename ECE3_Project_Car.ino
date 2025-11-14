@@ -61,7 +61,9 @@ float last_error = 0;
 int obstacle_ctr = 0;
 
 
-
+bool bar(){
+  return non_weighted_sum >= 8 * 700;
+}
 
 
 
