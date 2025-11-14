@@ -168,16 +168,16 @@ void loop()
   //-------------------------------------------------------------------------------------------------------------
   //Calculation
   //take average error of the 8 sensors
-  if(non_weighted_sum >= 8 * 700){
-    // if(!calibration_function()){
-    //   //blink 5 times if calibration was aborted midway
-    //   for (unsigned char j = 0; j < 5; j++){
-    //     digitalWrite(red_led_pin, HIGH);
-    //     delay(600);
-    //     digitalWrite(red_led_pin, LOW);
-    //     delay(600);
-    //   }
-    // }
+  if(non_weighted_sum >= 8 * 750){
+    if(!calibration_function()){
+      //blink 5 times if calibration was aborted midway
+      for (unsigned char j = 0; j < 5; j++){
+        digitalWrite(red_led_pin, HIGH);
+        delay(600);
+        digitalWrite(red_led_pin, LOW);
+        delay(600);
+      }
+    }
 
   }
 
