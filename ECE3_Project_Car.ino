@@ -19,6 +19,9 @@ int16_t max_avg_error = 248;
 //uint16_t minVal[8] = {750, 683, 723, 775, 694, 702, 771,	823};
 
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
+int16_t weightVal_left[8] = {0, 0, -1, -1, -1, 20, 30, 20};       //favor left branch
+int16_t weightVal_right[8] = {-20, -30, -20, 1, 1, 1, 0, 0};      //favor right branch
+int16_t weightVal_original[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 int16_t weightVal[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 
 const int number_samples = 5;
@@ -75,7 +78,11 @@ const unsigned long enc_bin_len = 50e3;
 uint16_t obstacle_ctr = 0;
 uint16_t crosspiece = 0;
 
-
+//0 = not detect peak
+//1 = detect left peak
+//2 = detect right peak
+//3 = detect branch
+uint16_t detect_peak = 0;
 
 
 
@@ -144,7 +151,9 @@ void loop()
   //-------------------------------------------------------------------------------------------------------------
   //Sampling
   uint16_t summed_values[8] = {0};
-  uint16_t non_weighted_sum = 0;
+  int16_t non_weighted_sum = 0;
+  uint16_t non_norm_sum = 0;
+  uint16_t peak_value = 0;
   int16_t weighted_sum = 0;
 
   // Take the average of 5 consecutive values for each sensor
@@ -167,12 +176,33 @@ void loop()
   // Increment current position by the increment value
   //current_position += increment_position;
 
+
+  //detect donut track
+  //detect right
+  if(detect_peak == 2){
+    peak_value = max(((summed_values[0] / number_samples) - minVal[0]) * 1000 / (maxVal[0] - minVal[0])
+                  , ((summed_values[1] / number_samples) - minVal[1]) * 1000 / (maxVal[1] - minVal[1]));
+  }
+  //detect left
+  else if(detect_peak == 1){
+    peak_value = max(((summed_values[6] / number_samples) - minVal[6]) * 1000 / (maxVal[6] - minVal[6])
+                  , ((summed_values[7] / number_samples) - minVal[7]) * 1000 / (maxVal[7] - minVal[7]));
+  }
+  else if(detect_peak == 3){
+    if( (((summed_values[2] / number_samples) - minVal[2]) * 1000 / (maxVal[2] - minVal[2])) + 
+        ((summed_values[5] / number_samples) - minVal[5]) * 1000 / (maxVal[5] - minVal[5]) >= 2 * 800)
+        peak_value = 1000;
+  }
+
+
+
   // Print average values (average value = summed_values / number_samples
   for (unsigned char i = 0; i < 8; i++) {
-    //the last operation should always be division, because value less than 1 can be cast to 0 in int, if not handled correctly
+    //must divide last to avoid precision loss
     //the divide by 8 is for weighting purpose
-    weighted_sum += (weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000) / (8 * (maxVal[i] - minVal[i]));
+    weighted_sum += (weightVal[i] * (summed_values[i] / number_samples) - minVal[i]) * 1000 / (8 * (maxVal[i] - minVal[i]));
     non_weighted_sum += ((summed_values[i] / number_samples) - minVal[i]) * 1000 / (maxVal[i] - minVal[i]);
+    non_norm_sum += (summed_values[i] / number_samples);
     // Serial.print(weightVal[i] * ((summed_values[i] / number_samples) - minVal[i]) * 1000 /(8 * (maxVal[i] - minVal[i])));
     // Serial.print('\t'); 
   }
@@ -193,7 +223,7 @@ void loop()
   }
 
   //detect crosspiece period
-  if(non_weighted_sum == 8 * 2500)
+  if(non_norm_sum >= 8 * 2500)
     (crosspiece == 2) ? crosspiece = 0 : crosspiece = 2;
   else
     (crosspiece == 2) ? crosspiece = 1 : crosspiece = 0;
@@ -241,17 +271,77 @@ void loop()
   //Obstacle Handling
 
   //detect black signal band
-  if(non_weighted_sum >= 8 * 800 && non_weighted_sum <= 8 * 2400){
-    rotation( 20, 360);
-    // if(!calibration_function()){
-    //   //blink 5 times if calibration was aborted midway
-    //   for (unsigned char j = 0; j < 5; j++){
-    //     digitalWrite(red_led_pin, HIGH);
-    //     delay(600);
-    //     digitalWrite(red_led_pin, LOW);
-    //     delay(600);
-    //   }
-    // }
+  if( (non_weighted_sum >= 8 * 800 && non_norm_sum < 8 * 2450) ||
+      (peak_value >= 800 && detect_peak != 0 && non_norm_sum < 8 * 2450) ){
+    switch(obstacle_ctr){
+      // case 0:         //225 degree band
+      //   rotation(20, 225);
+      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
+      // break;
+      // case 1:         //first timed band
+      //   memcpy(weightVal, weightVal_right, sizeof(weightVal));
+      //   detect_peak = 1;
+      // break;
+      // case 2:         //first intersection with donut
+      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
+      //   detect_peak = 3;
+      // break;
+      // case 3:         //second intersection with donut
+      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
+      //   detect_peak = 2;
+      // break;
+      // case 4:         //first return intersection with donut
+      //   memcpy(weightVal, weightVal_right, sizeof(weightVal));
+      //   detect_peak = 1;
+      // break;
+      // case 5:         //second return intersection with donut
+      //   memcpy(weightVal, weightVal_original, sizeof(weightVal));
+      //   detect_peak = 0;
+      // break;
+      // case 6:         //second timed band
+      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
+      // break;
+
+      case 0:         
+        memcpy(weightVal, weightVal_right, sizeof(weightVal));
+        detect_peak = 1;
+        if(!calibration_function()){
+          //blink 5 times if calibration was aborted midway
+          for (unsigned char j = 0; j < 5; j++){
+            digitalWrite(red_led_pin, HIGH);
+            delay(600);
+            digitalWrite(red_led_pin, LOW);
+            delay(600);
+          }
+        }
+        obstacle_ctr++;
+      break;
+      case 1:         //first timed band
+        memcpy(weightVal, weightVal_right, sizeof(weightVal));
+        detect_peak = 0;
+        if(!calibration_function()){
+          //blink 5 times if calibration was aborted midway
+          for (unsigned char j = 0; j < 5; j++){
+            digitalWrite(red_led_pin, HIGH);
+            delay(600);
+            digitalWrite(red_led_pin, LOW);
+            delay(600);
+          }
+        }
+        obstacle_ctr++;
+      break;
+      default:
+        // if(!calibration_function()){
+        //   //blink 5 times if calibration was aborted midway
+        //   for (unsigned char j = 0; j < 5; j++){
+        //     digitalWrite(red_led_pin, HIGH);
+        //     delay(600);
+        //     digitalWrite(red_led_pin, LOW);
+        //     delay(600);
+        //   }
+        // }
+      break;
+    }
   }
 
   //-------------------------------------------------------------------------------------------------------------
@@ -290,9 +380,9 @@ void rotation(uint16_t spd, int16_t angle){
 
   while(total_enc_cnt <= abs(angle)){
     total_enc_cnt = abs(getEncoderCount_right());
-    Serial.print(total_enc_cnt);
-    Serial.println();
-    delay(100);
+    //Serial.print(total_enc_cnt);
+    //Serial.println();
+    delay(50);
   }
 
   digitalWrite(left_dir_pin, LOW);
@@ -390,7 +480,10 @@ bool calibration_function(){
       if(_maxVal[j] == 0 || mean_value > _maxVal[j]) _maxVal[j] = mean_value;
       if(_minVal[j] == 0 || mean_value < _minVal[j]) _minVal[j] = mean_value;
       Serial.print(mean_value);
-      Serial.print('\t');
+      Serial.print('_');
+      //test for black band
+      Serial.print((mean_value - minVal[j]) * 1000 / (maxVal[j] - minVal[j]));     
+      Serial.print("   ");
     }
     Serial.println();
   }
