@@ -22,7 +22,6 @@ int16_t max_avg_error = 248;
 int16_t weightVal[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 
 const int number_samples = 5;
-bool print_directions = true;
 
 //S1 button
 const int right_btn_pin = 73;
@@ -56,10 +55,19 @@ float K_d = 6.3 * K_p;
 
 //----------------------------------------------------------------------------------
 //Wheel Derivative Control
+unsigned long current_time = 0;
 unsigned long delta_time = 0;
 unsigned long last_delta_time = 0;
 float delta_error = 0;
 float last_error = 0;
+//----------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------
+//Encoder
+uint16_t avg_enc_cnt = 0;
+unsigned long last_enc_time = 0;
+const unsigned long enc_bin_len = 50e3;
+
 
 
 
@@ -71,10 +79,16 @@ uint16_t crosspiece = 0;
 
 
 
+
 void setup()
 {
   ECE3_Init();
   Serial.begin(9600); // set the data rate in bits per second for serial data transmission
+  resetEncoderCount_left();
+  resetEncoderCount_right();
+  avg_enc_cnt = 0;
+  last_enc_time = micros();
+  last_delta_time = micros();
   delay(1000);
 
   pinMode(left_nslp_pin, OUTPUT);
@@ -106,11 +120,6 @@ void loop()
 
   //-------------------------------------------------------------------------------------------------------------
   //Setup
-  if (print_directions)
-  {
-    print_directions = false;
-    last_delta_time = micros();
-  }
 
   //wait for user input
   // while (Serial.available() == 0) {}
@@ -127,6 +136,7 @@ void loop()
       }
     }
   }
+
   //-------------------------------------------------------------------------------------------------------------
 
 
@@ -168,25 +178,20 @@ void loop()
   }
   //Serial.println();
   //-------------------------------------------------------------------------------------------------------------
-  
-
 
   //-------------------------------------------------------------------------------------------------------------
   //Calculation
-
-  //detect black signal band
-  if(non_weighted_sum >= 8 * 800 && non_weighted_sum <= 8 * 2400){
-    if(!calibration_function()){
-      //blink 5 times if calibration was aborted midway
-      for (unsigned char j = 0; j < 5; j++){
-        digitalWrite(red_led_pin, HIGH);
-        delay(600);
-        digitalWrite(red_led_pin, LOW);
-        delay(600);
-      }
-    }
-  }
   
+  current_time = micros();
+
+  // Encoder Speed Calculation
+  if (current_time - last_enc_time > enc_bin_len) {  
+    avg_enc_cnt = (getEncoderCount_left() + getEncoderCount_right()) / 2;       
+    resetEncoderCount_left();
+    resetEncoderCount_right();
+    last_enc_time = current_time;
+  }
+
   //detect crosspiece period
   if(non_weighted_sum == 8 * 2500)
     (crosspiece == 2) ? crosspiece = 0 : crosspiece = 2;
@@ -201,7 +206,7 @@ void loop()
   car_dir = (avg_error < 0);
   int16_t _p = abs(avg_error * K_p);
 
-  delta_time = micros() - last_delta_time;
+  delta_time = current_time - last_delta_time;
   delta_error = avg_error - last_error;
   //delta time is around 5ms, delta error is around 25 to 50
   //multiply by 1000 covert to delta time to ms
@@ -210,7 +215,7 @@ void loop()
   //set _d to zero if current or prev error is a cross piece
   if(crosspiece != 0) _d = 0; 
 
-  last_delta_time = micros();
+  last_delta_time = current_time;
   last_error = avg_error;
   
   // Serial.print("_d: ");
@@ -232,24 +237,70 @@ void loop()
   }
   //-------------------------------------------------------------------------------------------------------------
 
+  //-------------------------------------------------------------------------------------------------------------
+  //Obstacle Handling
 
+  //detect black signal band
+  if(non_weighted_sum >= 8 * 800 && non_weighted_sum <= 8 * 2400){
+    rotation( 20, 360);
+    // if(!calibration_function()){
+    //   //blink 5 times if calibration was aborted midway
+    //   for (unsigned char j = 0; j < 5; j++){
+    //     digitalWrite(red_led_pin, HIGH);
+    //     delay(600);
+    //     digitalWrite(red_led_pin, LOW);
+    //     delay(600);
+    //   }
+    // }
+  }
+
+  //-------------------------------------------------------------------------------------------------------------
 
   //-------------------------------------------------------------------------------------------------------------
   //Execution
 
   analogWrite(left_pwm_pin, left_pwm_state);
   analogWrite(right_pwm_pin, right_pwm_state);
+  //-------------------------------------------------------------------------------------------------------------
 
 
 }
 
 
 
+//+angle = right rotation
+//-angle = left rotation
+//spd = pwm spd
+void rotation(uint16_t spd, int16_t angle){
+  resetEncoderCount_left();
+  resetEncoderCount_right();
+  int total_enc_cnt = 0;
 
+  if(angle >= 0){
+    digitalWrite(left_dir_pin, LOW);
+    digitalWrite(right_dir_pin, HIGH);
+  }
+  else{
+    digitalWrite(left_dir_pin, HIGH);
+    digitalWrite(right_dir_pin, LOW);
+  }
 
+  analogWrite(left_pwm_pin, spd);
+  analogWrite(right_pwm_pin, spd);
 
+  while(total_enc_cnt <= abs(angle)){
+    total_enc_cnt = abs(getEncoderCount_right());
+    Serial.print(total_enc_cnt);
+    Serial.println();
+    delay(100);
+  }
 
+  digitalWrite(left_dir_pin, LOW);
+  digitalWrite(right_dir_pin, LOW);
 
+  resetEncoderCount_left();
+  resetEncoderCount_right();
+}
 
 
 
