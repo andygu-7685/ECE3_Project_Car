@@ -6,8 +6,6 @@ String dummy;
 //Calibration
 uint16_t sensorValues[8];
 //Lab
-// uint16_t maxVal[8] = {2500,	2297,	2500,	2500,	2248,	2500,	2500,	2500};
-// uint16_t minVal[8] = {619,	573,	641,	688,	619,	688,	757,	828};
 // uint16_t maxVal[8] = {2321,	1835,	1891,	2083,	1770,	1839,	2041,	2329};
 // uint16_t minVal[8] = {721,	630,	723,	747,	653,	698,	749,	821};
 //Apartment
@@ -17,19 +15,30 @@ int16_t max_avg_error = 248;
 //PCC
 //uint16_t maxVal[8] = {2059, 1935, 2013, 2050, 1914, 1871, 1986, 2391};
 //uint16_t minVal[8] = {750, 683, 723, 775, 694, 702, 771,	823};
+//Powell
+// uint16_t maxVal[8] = {1258,	1512,	1294,	2052,	1957,	1959,	1737,	1457};
+// uint16_t minVal[8] = {470,	403,	558,	556,	557,	554,	436,	652};
+// int16_t max_avg_error = 212;
+//Panda
+// uint16_t maxVal[8] = {2262,	2168,	2050,	2252, 2237,	2308,	2426,	2500};
+// uint16_t minVal[8] = {707,	571,	662,	685,	548,	685,	798,	868};
+// int16_t max_avg_error = 201;
 
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
-int16_t weightVal_left[8] = {0, 0, -1, -1, -1, 20, 30, 20};       //favor left branch
-int16_t weightVal_right[8] = {-20, -30, -20, 1, 1, 1, 0, 0};      //favor right branch
-int16_t weightVal_original[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
-int16_t weightVal[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
+int16_t weightVal_left[8] = {0, 0, 0, -0, -20, -30, 30, 20};       //favor left branch
+int16_t weightVal_right[8] = {-30, -30, 30, 30, 0, 0, 0, 0};      //favor right branch
+int16_t weightVal_left_ext[8] = {0, 0, 0, 0, 0, 0, 50, 50};
+int16_t weightVal_right_ext[8] = {-50, -50, 0, 0, 0, 0, 0, 0};
+int16_t weightVal_concave[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
+int16_t weightVal_flat[8] = {-15, -15, -15, -15, 15, 15, 15, 15};
+int16_t weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
+int16_t weightVal[8] = {-30, -30, 30, 30, 0, 0, 0, 0};
 
 const int number_samples = 5;
 
 //S1 button
 const int right_btn_pin = 73;
 const int red_led_pin = 75;
-bool calibrate = true;
 //----------------------------------------------------------------------------------
 
 
@@ -46,14 +55,14 @@ const int right_pwm_pin = 39;
 
 int left_pwm_state = 0;
 int right_pwm_state = 0;
-int base_pwm_speed = 30;
+int base_pwm_speed = 20;
 
 //true == right
 //false == left
 bool car_dir = true;
 float avg_error = 0;
 float K_p = 0.9 * base_pwm_speed / max_avg_error;
-float K_d = 6.3 * K_p;
+float K_d = 5 * K_p;
 //----------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------
@@ -70,12 +79,16 @@ float last_error = 0;
 uint16_t avg_enc_cnt = 0;
 unsigned long last_enc_time = 0;
 const unsigned long enc_bin_len = 50e3;
+uint16_t total_enc_cnt = 0;
 
 
 
 
 
 uint16_t obstacle_ctr = 0;
+//0 = no crosspiece
+//1 = the first sample after a crosspiece
+//2 = cross piece detected
 uint16_t crosspiece = 0;
 
 //0 = not detect peak
@@ -83,8 +96,7 @@ uint16_t crosspiece = 0;
 //2 = detect right peak
 //3 = detect branch
 uint16_t detect_peak = 0;
-
-
+unsigned long last_milestone_time = 0;
 
 
 void setup()
@@ -216,7 +228,8 @@ void loop()
 
   // Encoder Speed Calculation
   if (current_time - last_enc_time > enc_bin_len) {  
-    avg_enc_cnt = (getEncoderCount_left() + getEncoderCount_right()) / 2;       
+    avg_enc_cnt = (abs(getEncoderCount_left()) + abs(getEncoderCount_right())) / 2;
+    total_enc_cnt += avg_enc_cnt;       
     resetEncoderCount_left();
     resetEncoderCount_right();
     last_enc_time = current_time;
@@ -268,66 +281,68 @@ void loop()
   //-------------------------------------------------------------------------------------------------------------
 
   //-------------------------------------------------------------------------------------------------------------
+  //Execution
+  if(left_pwm_state < 0)
+    digitalWrite(left_dir_pin, HIGH);
+  else
+    digitalWrite(left_dir_pin, LOW);
+
+  if(right_pwm_state < 0)
+    digitalWrite(right_dir_pin, HIGH);
+  else
+    digitalWrite(right_dir_pin, LOW);
+
+  analogWrite(left_pwm_pin, left_pwm_state);
+  analogWrite(right_pwm_pin, right_pwm_state);
+  //-------------------------------------------------------------------------------------------------------------
+
+  //-------------------------------------------------------------------------------------------------------------
   //Obstacle Handling
 
   //detect black signal band
-  if( (non_weighted_sum >= 8 * 800 && non_norm_sum < 8 * 2450) ||
-      (peak_value >= 800 && detect_peak != 0 && non_norm_sum < 8 * 2450) ){
+  if( (non_weighted_sum >= 8 * 600 && non_norm_sum < 8 * 2450 && current_time - last_milestone_time > 1000000 && (obstacle_ctr == 0 || obstacle_ctr == 2)) ||
+      (peak_value >= 800 && detect_peak != 0 && non_norm_sum < 8 * 2450) ||
+      (total_enc_cnt >= 660 && obstacle_ctr == 1) ||
+      (total_enc_cnt >= 115 && obstacle_ctr == 3) ||
+      (total_enc_cnt >= 1 && obstacle_ctr == 4) ||
+      (total_enc_cnt >= 1 && obstacle_ctr == 5) ||
+      (total_enc_cnt >= 165 && obstacle_ctr == 6) ){
     switch(obstacle_ctr){
-      // case 0:         //225 degree band
-      //   rotation(20, 225);
-      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
-      // break;
-      // case 1:         //first timed band
-      //   memcpy(weightVal, weightVal_right, sizeof(weightVal));
-      //   detect_peak = 1;
-      // break;
-      // case 2:         //first intersection with donut
-      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
-      //   detect_peak = 3;
-      // break;
-      // case 3:         //second intersection with donut
-      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
-      //   detect_peak = 2;
-      // break;
-      // case 4:         //first return intersection with donut
-      //   memcpy(weightVal, weightVal_right, sizeof(weightVal));
-      //   detect_peak = 1;
-      // break;
-      // case 5:         //second return intersection with donut
-      //   memcpy(weightVal, weightVal_original, sizeof(weightVal));
-      //   detect_peak = 0;
-      // break;
-      // case 6:         //second timed band
-      //   memcpy(weightVal, weightVal_left, sizeof(weightVal));
-      // break;
-
-      case 0:         
+      case 0:         //225 degree band
+        rotation(30, 60, true);
         memcpy(weightVal, weightVal_right, sizeof(weightVal));
-        detect_peak = 1;
-        if(!calibration_function()){
-          //blink 5 times if calibration was aborted midway
-          for (unsigned char j = 0; j < 5; j++){
-            digitalWrite(red_led_pin, HIGH);
-            delay(600);
-            digitalWrite(red_led_pin, LOW);
-            delay(600);
-          }
-        }
+        total_enc_cnt = 0;
+        last_milestone_time = current_time;
+        obstacle_ctr++;
+        
+      break;
+      case 1:         //after car pass discont.
+        memcpy(weightVal, weightVal_left, sizeof(weightVal));
         obstacle_ctr++;
       break;
-      case 1:         //first timed band
-        memcpy(weightVal, weightVal_right, sizeof(weightVal));
-        detect_peak = 0;
-        if(!calibration_function()){
-          //blink 5 times if calibration was aborted midway
-          for (unsigned char j = 0; j < 5; j++){
-            digitalWrite(red_led_pin, HIGH);
-            delay(600);
-            digitalWrite(red_led_pin, LOW);
-            delay(600);
-          }
-        }
+      case 2:         //first timed band
+        memcpy(weightVal, weightVal_convex, sizeof(weightVal));
+        total_enc_cnt = 0;
+        last_milestone_time = current_time;
+        obstacle_ctr++;
+      break;
+      case 3:         //quarter way
+        rotation(30, 90, false);
+        total_enc_cnt = 0;
+        obstacle_ctr++;
+      break;
+      case 4:       //midway
+        rotation(30, -360, false);
+        total_enc_cnt = 0;
+        obstacle_ctr++;
+      break;
+      case 5:       //second midway
+        rotation(30, 90, false);
+        total_enc_cnt = 0;
+        obstacle_ctr++;
+      break;
+      case 6:
+        memcpy(weightVal, weightVal_concave, sizeof(weightVal));
         obstacle_ctr++;
       break;
       default:
@@ -342,18 +357,22 @@ void loop()
         // }
       break;
     }
+
+    if(last_milestone_time != current_time){
+      // if(!calibration_function()){
+      //   //blink 5 times if calibration was aborted midway
+      //   for (unsigned char j = 0; j < 5; j++){
+      //     digitalWrite(red_led_pin, HIGH);
+      //     delay(600);
+      //     digitalWrite(red_led_pin, LOW);
+      //     delay(600);
+      //   }
+      // }
+    }
+    
   }
 
   //-------------------------------------------------------------------------------------------------------------
-
-  //-------------------------------------------------------------------------------------------------------------
-  //Execution
-
-  analogWrite(left_pwm_pin, left_pwm_state);
-  analogWrite(right_pwm_pin, right_pwm_state);
-  //-------------------------------------------------------------------------------------------------------------
-
-
 }
 
 
@@ -361,29 +380,47 @@ void loop()
 //+angle = right rotation
 //-angle = left rotation
 //spd = pwm spd
-void rotation(uint16_t spd, int16_t angle){
+//twoWheel:
+//true = both wheel
+//false = one wheel
+void rotation(uint16_t spd, int16_t angle, bool twoWheel){
   resetEncoderCount_left();
   resetEncoderCount_right();
-  int total_enc_cnt = 0;
+  int _enc_cnt = 0;
+  int wheelAngle = angle * 2;
 
-  if(angle >= 0){
-    digitalWrite(left_dir_pin, LOW);
-    digitalWrite(right_dir_pin, HIGH);
+  if(twoWheel){
+    if(angle >= 0){
+      digitalWrite(left_dir_pin, LOW);
+      digitalWrite(right_dir_pin, HIGH);
+    }
+    else{
+      digitalWrite(left_dir_pin, HIGH);
+      digitalWrite(right_dir_pin, LOW);
+    }
+    analogWrite(left_pwm_pin, spd);
+    analogWrite(right_pwm_pin, spd);
   }
   else{
-    digitalWrite(left_dir_pin, HIGH);
-    digitalWrite(right_dir_pin, LOW);
+    if(angle >= 0){
+      analogWrite(left_pwm_pin, spd);
+      analogWrite(right_pwm_pin, 0);
+    }
+    else{
+      analogWrite(left_pwm_pin, 0);
+      analogWrite(right_pwm_pin, spd);
+    }
   }
 
-  analogWrite(left_pwm_pin, spd);
-  analogWrite(right_pwm_pin, spd);
-
-  while(total_enc_cnt <= abs(angle)){
-    total_enc_cnt = abs(getEncoderCount_right());
-    //Serial.print(total_enc_cnt);
+  while(_enc_cnt <= abs(wheelAngle)){
+    _enc_cnt = (abs(getEncoderCount_right()) + abs(getEncoderCount_left())) / 2;
+    //Serial.print(_enc_cnt);
     //Serial.println();
     delay(50);
   }
+
+  analogWrite(left_pwm_pin, 0);
+  analogWrite(right_pwm_pin, 0);
 
   digitalWrite(left_dir_pin, LOW);
   digitalWrite(right_dir_pin, LOW);
