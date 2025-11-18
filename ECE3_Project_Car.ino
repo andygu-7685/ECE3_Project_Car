@@ -9,9 +9,9 @@ uint16_t sensorValues[8];
 // uint16_t maxVal[8] = {2321,	1835,	1891,	2083,	1770,	1839,	2041,	2329};
 // uint16_t minVal[8] = {721,	630,	723,	747,	653,	698,	749,	821};
 //Apartment
-uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
-uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
-int16_t max_avg_error = 248;
+// uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
+// uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
+// int16_t max_avg_error = 248;
 //PCC
 //uint16_t maxVal[8] = {2059, 1935, 2013, 2050, 1914, 1871, 1986, 2391};
 //uint16_t minVal[8] = {750, 683, 723, 775, 694, 702, 771,	823};
@@ -23,16 +23,27 @@ int16_t max_avg_error = 248;
 // uint16_t maxVal[8] = {2262,	2168,	2050,	2252, 2237,	2308,	2426,	2500};
 // uint16_t minVal[8] = {707,	571,	662,	685,	548,	685,	798,	868};
 // int16_t max_avg_error = 201;
+//Home
+// uint16_t maxVal[8] = {2251,	2257,	2093,	2208,	2230,	2203,	2178,	2498};
+// uint16_t minVal[8] = {606,	559,	668,	697,	647,  679,	765,	828};
+// int16_t max_avg_error = 411;
+uint16_t maxVal[8] = {1813,	1795,	1723,	1794,	1723,	1723,	1837,	2077};
+uint16_t minVal[8] = {685,	616,	640,	685,	603,	616,	662,	755};
+int16_t max_avg_error = 300;
 
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
-int16_t weightVal_left[8] = {0, 0, 0, -0, -20, -30, 30, 20};       //favor left branch
-int16_t weightVal_right[8] = {-30, -30, 30, 30, 0, 0, 0, 0};      //favor right branch
-int16_t weightVal_left_ext[8] = {0, 0, 0, 0, 0, 0, 50, 50};
-int16_t weightVal_right_ext[8] = {-50, -50, 0, 0, 0, 0, 0, 0};
+int16_t weightVal_left[8] = {0, 0, 0, -20, -30, 20, 30, 20};       //favor left branch
+int16_t weightVal_right[8] = {-20, -30, -20, 30, 20, 0, 0, 0};       //favor right branch
+int16_t weightVal_left_cent[8] = {0, 0, 0, 0, -20, -30, 30, 20};      //center at left of car
+int16_t weightVal_right_cent[8] = {-20, -30, 30, 20, 0, 0, 0, 0};     //center at right of car
+int16_t weightVal_left_rot[8] = {0, 0, -10, -8, 8, 12, 14, 15};      //rotation left
+int16_t weightVal_right_rot[8] = {-15, -14, -12, -8, 8, 10, 0, 0};     //rotation right
 int16_t weightVal_concave[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 int16_t weightVal_flat[8] = {-15, -15, -15, -15, 15, 15, 15, 15};
+int16_t weightVal_blank[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 int16_t weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
-int16_t weightVal[8] = {-30, -30, 30, 30, 0, 0, 0, 0};
+int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
+int16_t weightVal[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 
 const int number_samples = 5;
 
@@ -40,7 +51,6 @@ const int number_samples = 5;
 const int right_btn_pin = 73;
 const int red_led_pin = 75;
 //----------------------------------------------------------------------------------
-
 
 
 //----------------------------------------------------------------------------------
@@ -55,47 +65,48 @@ const int right_pwm_pin = 39;
 
 int left_pwm_state = 0;
 int right_pwm_state = 0;
-int base_pwm_speed = 20;
+int base_pwm_speed = 25;
 
 //true == right
 //false == left
 bool car_dir = true;
 float avg_error = 0;
 float K_p = 0.9 * base_pwm_speed / max_avg_error;
-float K_d = 5 * K_p;
 //----------------------------------------------------------------------------------
+
 
 //----------------------------------------------------------------------------------
 //Wheel Derivative Control
+//delta_time = current_time - last_delta_time
 unsigned long current_time = 0;
-unsigned long delta_time = 0;
 unsigned long last_delta_time = 0;
+unsigned long delta_time = 0;
+//delta_error = avg_error - last_error
 float delta_error = 0;
 float last_error = 0;
+//correction pwm = delta_error * K_d / delta_time
+float K_d = 5 * K_p;
 //----------------------------------------------------------------------------------
+
 
 //----------------------------------------------------------------------------------
 //Encoder
+//avg_enc_cnt = number of encoder count every enc_bin_len us
 uint16_t avg_enc_cnt = 0;
 unsigned long last_enc_time = 0;
 const unsigned long enc_bin_len = 50e3;
+//cumulative encoder count that gets reset to 0 depending on the obstacle handling logic
 uint16_t total_enc_cnt = 0;
+//----------------------------------------------------------------------------------
 
 
-
-
-
+//count how many obstacle the car had passed
 uint16_t obstacle_ctr = 0;
 //0 = no crosspiece
 //1 = the first sample after a crosspiece
 //2 = cross piece detected
 uint16_t crosspiece = 0;
-
-//0 = not detect peak
-//1 = detect left peak
-//2 = detect right peak
-//3 = detect branch
-uint16_t detect_peak = 0;
+//prevent black band repetition in obstacle handling
 unsigned long last_milestone_time = 0;
 
 
@@ -137,6 +148,7 @@ void setup()
 void loop()
 {
 
+
   //-------------------------------------------------------------------------------------------------------------
   //Setup
 
@@ -144,6 +156,7 @@ void loop()
   // while (Serial.available() == 0) {}
   // dummy = Serial.readString();
 
+  //calibration method
   if(digitalRead(right_btn_pin) == LOW){
     if(!calibration_function()){
       //blink 5 times if calibration was aborted midway
@@ -159,17 +172,15 @@ void loop()
   //-------------------------------------------------------------------------------------------------------------
 
 
-
   //-------------------------------------------------------------------------------------------------------------
   //Sampling
   uint16_t summed_values[8] = {0};
   int16_t non_weighted_sum = 0;
   uint16_t non_norm_sum = 0;
-  uint16_t peak_value = 0;
   int16_t weighted_sum = 0;
 
   // Take the average of 5 consecutive values for each sensor
-  //the time between each value depend on excution time
+  // the time between each value depend on excution time
   for (unsigned char j = 0; j < number_samples; j++){
     // Read all 8 raw sensor values into array
     ECE3_read_IR(sensorValues);
@@ -177,41 +188,12 @@ void loop()
     // Add each current sensor values to their respective index
     // in the summed values array using a for loop
     for (unsigned char i = 0; i < 8; i++)
-    {
       summed_values[i] += sensorValues[i];
-    }
   }
-
-  // Print current position at start of each column
-  //Serial.print(current_position);
-  //Serial.print("\t");
-  // Increment current position by the increment value
-  //current_position += increment_position;
-
-
-  //detect donut track
-  //detect right
-  if(detect_peak == 2){
-    peak_value = max(((summed_values[0] / number_samples) - minVal[0]) * 1000 / (maxVal[0] - minVal[0])
-                  , ((summed_values[1] / number_samples) - minVal[1]) * 1000 / (maxVal[1] - minVal[1]));
-  }
-  //detect left
-  else if(detect_peak == 1){
-    peak_value = max(((summed_values[6] / number_samples) - minVal[6]) * 1000 / (maxVal[6] - minVal[6])
-                  , ((summed_values[7] / number_samples) - minVal[7]) * 1000 / (maxVal[7] - minVal[7]));
-  }
-  else if(detect_peak == 3){
-    if( (((summed_values[2] / number_samples) - minVal[2]) * 1000 / (maxVal[2] - minVal[2])) + 
-        ((summed_values[5] / number_samples) - minVal[5]) * 1000 / (maxVal[5] - minVal[5]) >= 2 * 800)
-        peak_value = 1000;
-  }
-
-
 
   // Print average values (average value = summed_values / number_samples
   for (unsigned char i = 0; i < 8; i++) {
-    //must divide last to avoid precision loss
-    //the divide by 8 is for weighting purpose
+    //must divide last to avoid precision loss, the divide by 8 is for weighting purpose
     weighted_sum += (weightVal[i] * (summed_values[i] / number_samples) - minVal[i]) * 1000 / (8 * (maxVal[i] - minVal[i]));
     non_weighted_sum += ((summed_values[i] / number_samples) - minVal[i]) * 1000 / (maxVal[i] - minVal[i]);
     non_norm_sum += (summed_values[i] / number_samples);
@@ -221,41 +203,46 @@ void loop()
   //Serial.println();
   //-------------------------------------------------------------------------------------------------------------
 
+
   //-------------------------------------------------------------------------------------------------------------
   //Calculation
-  
+
   current_time = micros();
 
   // Encoder Speed Calculation
   if (current_time - last_enc_time > enc_bin_len) {  
     avg_enc_cnt = (abs(getEncoderCount_left()) + abs(getEncoderCount_right())) / 2;
-    total_enc_cnt += avg_enc_cnt;       
+    total_enc_cnt += avg_enc_cnt;         //cumulative encoder count       
     resetEncoderCount_left();
     resetEncoderCount_right();
     last_enc_time = current_time;
   }
 
-  //detect crosspiece period
+  //detect crosspiece period, if there's a crosspiece, 
+  //the current smaple and next sample will not be used for derivative control calculation
   if(non_norm_sum >= 8 * 2500)
     (crosspiece == 2) ? crosspiece = 0 : crosspiece = 2;
   else
     (crosspiece == 2) ? crosspiece = 1 : crosspiece = 0;
 
+
+  //PID Calculation
+
+  //Proportional Control:
   //take average error of the 8 sensors
   avg_error = weighted_sum / 8 ;
-
-  //true == right
-  //false == left
+  //false == left, true == right
   car_dir = (avg_error < 0);
   int16_t _p = abs(avg_error * K_p);
 
+  //Derivative Control:
   delta_time = current_time - last_delta_time;
   delta_error = avg_error - last_error;
   //delta time is around 5ms, delta error is around 25 to 50
   //multiply by 1000 covert to delta time to ms
   //multiply by 10 for scaling factor
   float _d = abs(delta_error * 10 * 1000 * K_d / delta_time);
-  //set _d to zero if current or prev error is a cross piece
+  //set _d to zero if current or prev avg_error is a cross piece
   if(crosspiece != 0) _d = 0; 
 
   last_delta_time = current_time;
@@ -280,72 +267,120 @@ void loop()
   }
   //-------------------------------------------------------------------------------------------------------------
 
+
   //-------------------------------------------------------------------------------------------------------------
   //Execution
-  if(left_pwm_state < 0)
-    digitalWrite(left_dir_pin, HIGH);
-  else
-    digitalWrite(left_dir_pin, LOW);
+  if(left_pwm_state < 0){ left_pwm_state = 0; }
+    //digitalWrite(left_dir_pin, HIGH);
+  else{}
+    //digitalWrite(left_dir_pin, LOW);
 
-  if(right_pwm_state < 0)
-    digitalWrite(right_dir_pin, HIGH);
-  else
-    digitalWrite(right_dir_pin, LOW);
+  if(right_pwm_state < 0){ right_pwm_state = 0; }
+    //digitalWrite(right_dir_pin, HIGH);
+  else{}
+    //digitalWrite(right_dir_pin, LOW);
 
   analogWrite(left_pwm_pin, left_pwm_state);
   analogWrite(right_pwm_pin, right_pwm_state);
   //-------------------------------------------------------------------------------------------------------------
 
+
   //-------------------------------------------------------------------------------------------------------------
   //Obstacle Handling
 
   //detect black signal band
-  if( (non_weighted_sum >= 8 * 600 && non_norm_sum < 8 * 2450 && current_time - last_milestone_time > 1000000 && (obstacle_ctr == 0 || obstacle_ctr == 2)) ||
-      (peak_value >= 800 && detect_peak != 0 && non_norm_sum < 8 * 2450) ||
-      (total_enc_cnt >= 660 && obstacle_ctr == 1) ||
-      (total_enc_cnt >= 115 && obstacle_ctr == 3) ||
-      (total_enc_cnt >= 1 && obstacle_ctr == 4) ||
-      (total_enc_cnt >= 1 && obstacle_ctr == 5) ||
-      (total_enc_cnt >= 165 && obstacle_ctr == 6) ){
+  if( (non_weighted_sum >= 8 * 600 &&                     //detect black band 
+       non_norm_sum < 8 * 2450 &&                         //make sure it is not a crosspiece
+       current_time - last_milestone_time > 1000000 &&    //make sure the black band was not already processed by the obstacle handling algotithm 
+       (obstacle_ctr == 0 || obstacle_ctr == 3 || obstacle_ctr == 9))   ||     //make sure the algorithm only check black band when certain obstacle is passed
+
+       (total_enc_cnt >= 700 && obstacle_ctr == 1) ||     //after the 225 degree band
+       (total_enc_cnt >= 90 && obstacle_ctr == 2) ||     //shortly after branch off
+       (total_enc_cnt >= 115 && obstacle_ctr == 4) ||     //after the first timed band
+       (total_enc_cnt >= 80*2 && obstacle_ctr == 5)   ||     //place hold
+       (total_enc_cnt >= 350*2 && obstacle_ctr == 6)   ||     //place hold
+       (total_enc_cnt >= 90*2 && obstacle_ctr == 7) ||
+       (total_enc_cnt >= 570 && obstacle_ctr == 8)  ||
+       (total_enc_cnt >= 300 && obstacle_ctr == 10)  ){     //after the donut and right turn
     switch(obstacle_ctr){
+
       case 0:         //225 degree band
-        rotation(30, 60, true);
-        memcpy(weightVal, weightVal_right, sizeof(weightVal));
+        //rotate 60 degree, put on favor right weighting mask
+        //reset total encoder count to 0, to get the distance
+        //car traveled from the 225 degree band
+        //reset milestone time to prevent repetition
+        rotation(base_pwm_speed, 60, true);
+        memcpy(weightVal, weightVal_right_cent, sizeof(weightVal));
         total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
-        
       break;
-      case 1:         //after car pass discont.
-        memcpy(weightVal, weightVal_left, sizeof(weightVal));
+
+      case 1:         //after car pass discont., right when the car is at the split off point
+        //put on favor left weighting mask, such the car follow the left path
+        memcpy(weightVal, weightVal_left_rot, sizeof(weightVal));
+        total_enc_cnt = 0;
         obstacle_ctr++;
       break;
-      case 2:         //first timed band
+      case 2:         
         memcpy(weightVal, weightVal_convex, sizeof(weightVal));
         total_enc_cnt = 0;
+        obstacle_ctr++;
+      break;
+      case 3:         //first timed band
+        //put on regular weighting to center the car
+        //reset total encoder count to 0, to get the distance
+        //car traveled from the first timed band
+        memcpy(weightVal, weightVal_concave, sizeof(weightVal));
+        total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
       break;
-      case 3:         //quarter way
-        rotation(30, 90, false);
+      case 4:         //quarter way: a short distance after first timed band
+        //start rotation 90 degree to the right
+        //rotation(base_pwm_speed, 90, false);
+        memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
+        base_pwm_speed = 20;
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
-      case 4:       //midway
-        rotation(30, -360, false);
+      case 5:         //first midway: when the car start the donut circle
+        //start 360 donut rotation to the left
+        //rotation(base_pwm_speed, -360, false);
+        memcpy(weightVal, weightVal_left_rot, sizeof(weightVal));
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
-      case 5:       //second midway
-        rotation(30, 90, false);
+      case 6:       //second midway: when the car end the donut circle
+        //start 90 degree rotation to the right
+        //rotation(base_pwm_speed, 90, false);
+        memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
-      case 6:
+      case 7:       //after donut and right turn
+        //switch back to regular weighting mask
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
+        base_pwm_speed = 30;
+        K_p = 0.9 * base_pwm_speed / max_avg_error;
+        K_d = 5 * K_p;
+        total_enc_cnt = 0;
         obstacle_ctr++;
       break;
-      default:
+      case 8:
+        memcpy(weightVal, weightVal_left, sizeof(weightVal));
+        base_pwm_speed = 20;
+        K_p = 0.9 * base_pwm_speed / max_avg_error;
+        K_d = 5 * K_p;
+        obstacle_ctr++;
+      break;
+      case 9:
+        memcpy(weightVal, weightVal_blank, sizeof(weightVal));
+        base_pwm_speed = 25;
+        K_p = 0.9 * base_pwm_speed / max_avg_error;
+        K_d = 5 * K_p;
+        rotation(base_pwm_speed, 60, true);
+        total_enc_cnt = 0;
         // if(!calibration_function()){
         //   //blink 5 times if calibration was aborted midway
         //   for (unsigned char j = 0; j < 5; j++){
@@ -355,9 +390,19 @@ void loop()
         //     delay(600);
         //   }
         // }
+        obstacle_ctr++;
+      break;
+      case 10:
+        memcpy(weightVal, weightVal_start, sizeof(weightVal));
+        rotation(base_pwm_speed, 135, true);
+        total_enc_cnt = 0;
+        obstacle_ctr = 0;
+      break;
+      default:
       break;
     }
 
+    //for debug purpose
     if(last_milestone_time != current_time){
       // if(!calibration_function()){
       //   //blink 5 times if calibration was aborted midway
@@ -371,15 +416,28 @@ void loop()
     }
     
   }
-
   //-------------------------------------------------------------------------------------------------------------
+
+
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
 //+angle = right rotation
 //-angle = left rotation
+//
 //spd = pwm spd
+//
 //twoWheel:
 //true = both wheel
 //false = one wheel
@@ -481,7 +539,7 @@ bool calibration_function(){
     if(press_duration != 0){
       press_duration = micros() - press_start;
       //abort calibration when button is hold for 5 sec
-      if(press_duration > 5000000) return false;
+      if(press_duration > 2000000) return false;
     }
     else{
       press_start = micros();
@@ -563,7 +621,7 @@ bool calibration_function(){
   memcpy(minVal, _minVal, sizeof(minVal));
   max_avg_error = _max_avg_error;
   K_p = 0.9 * base_pwm_speed / max_avg_error;
-  K_d = 6.3 * K_p;
+  K_d = 5 * K_p;
   //clean sensor value array
   for (int i = 0; i < 8; i++) sensorValues[i] = 0;
   digitalWrite(red_led_pin, LOW);
