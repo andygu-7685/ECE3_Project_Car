@@ -8,6 +8,9 @@ uint16_t sensorValues[8];
 //Lab
 // uint16_t maxVal[8] = {2321,	1835,	1891,	2083,	1770,	1839,	2041,	2329};
 // uint16_t minVal[8] = {721,	630,	723,	747,	653,	698,	749,	821};
+uint16_t maxVal[8] = {1600,	1701,	1827,	1936,	1524,	1875,	1843,	1724	};
+uint16_t minVal[8] = {366,	435,	435,	498,	366,	435,	457,	616	};
+int16_t max_avg_error = 255;
 //Apartment
 // uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
 // uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
@@ -27,15 +30,15 @@ uint16_t sensorValues[8];
 // uint16_t maxVal[8] = {2251,	2257,	2093,	2208,	2230,	2203,	2178,	2498};
 // uint16_t minVal[8] = {606,	559,	668,	697,	647,  679,	765,	828};
 // int16_t max_avg_error = 411;
-uint16_t maxVal[8] = {1813,	1795,	1723,	1794,	1723,	1723,	1837,	2077};
-uint16_t minVal[8] = {685,	616,	640,	685,	603,	616,	662,	755};
-int16_t max_avg_error = 300;
+// uint16_t maxVal[8] = {1813,	1795,	1723,	1794,	1723,	1723,	1837,	2077};
+// uint16_t minVal[8] = {685,	616,	640,	685,	603,	616,	662,	755};
+// int16_t max_avg_error = 300;
 
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
 int16_t weightVal_left[8] = {0, 0, 0, -20, -30, 20, 30, 20};       //favor left branch
 int16_t weightVal_right[8] = {-20, -30, -20, 30, 20, 0, 0, 0};       //favor right branch
-int16_t weightVal_left_cent[8] = {0, 0, 0, 0, -20, -30, 30, 20};      //center at left of car
-int16_t weightVal_right_cent[8] = {-20, -30, 30, 20, 0, 0, 0, 0};     //center at right of car
+int16_t weightVal_left_cent[8] = {0, 0, 0, -5, -10, -20, 20, 15};      //center at left of car
+int16_t weightVal_right_cent[8] = {-15, -20, 20, 10, 5, 0, 0, 0};     //center at right of car
 int16_t weightVal_left_rot[8] = {0, 0, -10, -8, 8, 12, 14, 15};      //rotation left
 int16_t weightVal_right_rot[8] = {-15, -14, -12, -8, 8, 10, 0, 0};     //rotation right
 int16_t weightVal_concave[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
@@ -108,7 +111,22 @@ uint16_t obstacle_ctr = 0;
 uint16_t crosspiece = 0;
 //prevent black band repetition in obstacle handling
 unsigned long last_milestone_time = 0;
-
+float map_factor = 1.1;
+enum Color {
+    Bar1,
+    AfterDiscont,
+    Branch,
+    AfterBranch,
+    Bar2,
+    StartDonut,
+    Midway1,
+    Midway2,
+    EndDonut,
+    Bar3,
+    StartDouble,
+    EndDouble,
+    End
+};
 
 void setup()
 {
@@ -289,19 +307,19 @@ void loop()
   //Obstacle Handling
 
   //detect black signal band
-  if( (non_weighted_sum >= 8 * 600 &&                     //detect black band 
+  if( (non_weighted_sum >= 8 * 800 &&                     //detect black band 
        non_norm_sum < 8 * 2450 &&                         //make sure it is not a crosspiece
        current_time - last_milestone_time > 1000000 &&    //make sure the black band was not already processed by the obstacle handling algotithm 
        (obstacle_ctr == 0 || obstacle_ctr == 3 || obstacle_ctr == 9))   ||     //make sure the algorithm only check black band when certain obstacle is passed
 
-       (total_enc_cnt >= 700 && obstacle_ctr == 1) ||     //after the 225 degree band
-       (total_enc_cnt >= 90 && obstacle_ctr == 2) ||     //shortly after branch off
-       (total_enc_cnt >= 115 && obstacle_ctr == 4) ||     //after the first timed band
-       (total_enc_cnt >= 80*2 && obstacle_ctr == 5)   ||     //place hold
-       (total_enc_cnt >= 350*2 && obstacle_ctr == 6)   ||     //place hold
-       (total_enc_cnt >= 90*2 && obstacle_ctr == 7) ||
-       (total_enc_cnt >= 570 && obstacle_ctr == 8)  ||
-       (total_enc_cnt >= 300 && obstacle_ctr == 10)  ){     //after the donut and right turn
+       (total_enc_cnt >= 700 * map_factor && obstacle_ctr == 1) ||     //after the 225 degree band
+       (total_enc_cnt >= 90 * map_factor && obstacle_ctr == 2) ||     //shortly after branch off
+       (total_enc_cnt >= 115 * map_factor && obstacle_ctr == 4) ||     //after the first timed band
+       (total_enc_cnt >= 82*2 * map_factor && obstacle_ctr == 5)   ||     //place hold
+       (total_enc_cnt >= 332*2 * map_factor && obstacle_ctr == 6)   ||     //place hold
+       (total_enc_cnt >= 90*2 * map_factor && obstacle_ctr == 7) ||
+       (total_enc_cnt >= 400 * map_factor&& obstacle_ctr == 8)  ||
+       (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == 10)  ){     //after the donut and right turn
     switch(obstacle_ctr){
 
       case 0:         //225 degree band
@@ -309,8 +327,11 @@ void loop()
         //reset total encoder count to 0, to get the distance
         //car traveled from the 225 degree band
         //reset milestone time to prevent repetition
-        rotation(base_pwm_speed, 60, true);
+        rotation(base_pwm_speed, -265, true);
         memcpy(weightVal, weightVal_right_cent, sizeof(weightVal));
+        base_pwm_speed = 20;
+        K_p = 0.9 * base_pwm_speed / max_avg_error;
+        K_d = 5 * K_p;
         total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
@@ -368,8 +389,8 @@ void loop()
         obstacle_ctr++;
       break;
       case 8:
-        memcpy(weightVal, weightVal_left, sizeof(weightVal));
-        base_pwm_speed = 20;
+        memcpy(weightVal, weightVal_right_cent, sizeof(weightVal));
+        base_pwm_speed = 25;
         K_p = 0.9 * base_pwm_speed / max_avg_error;
         K_d = 5 * K_p;
         obstacle_ctr++;
