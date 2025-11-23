@@ -104,6 +104,12 @@ const unsigned long enc_bin_len = 50e3;
 uint16_t total_enc_cnt = 0;
 //----------------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------------
+//Path return
+float off_path_error = 0;
+unsigned long last_path_time = 0;
+const unsigned long path_bin_len = 500e3;
+//----------------------------------------------------------------------------------
 
 //count how many obstacle the car had passed
 uint16_t obstacle_ctr = 0;
@@ -149,6 +155,7 @@ void setup()
   avg_enc_cnt = 0;
   last_enc_time = micros();
   last_delta_time = micros();
+  last_path_time = micros();
   delay(1000);
 
   pinMode(left_nslp_pin, OUTPUT);
@@ -295,6 +302,14 @@ void loop()
     left_pwm_state = base_pwm_speed - _p + _d;
     right_pwm_state = base_pwm_speed + _p - _d;
   }
+
+
+  //path return calculation
+  if(current_time - last_path_time > path_bin_len && 
+     non_weighted_sum >= 8 * 200 && non_norm_sum > 8 * 1) {
+    off_path_error = avg_error;
+    last_path_time = current_time;
+  }
   //-------------------------------------------------------------------------------------------------------------
 
 
@@ -341,7 +356,7 @@ void loop()
     
     ////for path return algorithm
     // if(non_weighted_sum <= 8 * 200 && non_norm_sum > 8 * 1){
-    //   if(!calibration_function()){
+    //   if(!cahlibration_function()){
     //     //blink 5 times if calibration was aborted midway
     //     for (unsigned char j = 0; j < 5; j++){
     //       digitalWrite(red_led_pin, HIGH);
