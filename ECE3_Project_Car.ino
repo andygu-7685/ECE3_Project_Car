@@ -8,13 +8,13 @@ uint16_t sensorValues[8];
 //Lab
 // uint16_t maxVal[8] = {2321,	1835,	1891,	2083,	1770,	1839,	2041,	2329};
 // uint16_t minVal[8] = {721,	630,	723,	747,	653,	698,	749,	821};
-// uint16_t maxVal[8] = {1600,	1701,	1827,	1936,	1524,	1875,	1843,	1724	};
-// uint16_t minVal[8] = {366,	435,	435,	498,	366,	435,	457,	616	};
-// int16_t max_avg_error = 255;
+uint16_t maxVal[8] = {1600,	1701,	1827,	1936,	1524,	1875,	1843,	1724	};
+uint16_t minVal[8] = {366,	435,	435,	498,	366,	435,	457,	616	};
+int16_t max_avg_error = 255;
 //Apartment
-uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
-uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
-int16_t max_avg_error = 248;
+// uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
+// uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
+// int16_t max_avg_error = 248;
 //PCC
 //uint16_t maxVal[8] = {2059, 1935, 2013, 2050, 1914, 1871, 1986, 2391};
 //uint16_t minVal[8] = {750, 683, 723, 775, 694, 702, 771,	823};
@@ -46,8 +46,8 @@ int16_t weightVal_flat[8] = {-15, -15, -15, -15, 15, 15, 15, 15};
 int16_t weightVal_blank[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 int16_t weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
 //Official Track
-//int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
-int16_t weightVal_start[8] = {0, -25, -30, 30, 30, 25, 0, 0};
+int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
+// int16_t weightVal_start[8] = {0, -25, -30, 30, 30, 25, 0, 0};
 int16_t weightVal[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 
 const int number_samples = 5;
@@ -119,7 +119,7 @@ uint16_t obstacle_ctr = 0;
 uint16_t crosspiece = 0;
 //prevent black band repetition in obstacle handling
 unsigned long last_milestone_time = 0;
-float map_factor = 1.0;
+float map_factor = 1.1;
 enum Color {
     Start,
     Bar1,
@@ -334,7 +334,7 @@ void loop()
   //Obstacle Handling
 
   //detect black signal band
-  if( (non_weighted_sum >= 8 * 500 &&                     //detect black band 
+  if( (non_weighted_sum >= 8 * 800 &&                     //detect black band 
        non_norm_sum < 8 * 2450 &&                         //make sure it is not a crosspiece
        current_time - last_milestone_time > 1000000 &&    //make sure the black band was not already processed by the obstacle handling algotithm 
        (obstacle_ctr == Bar1 || obstacle_ctr == Bar2 || obstacle_ctr == End))   ||     //make sure the algorithm only check black band when certain obstacle is passed
@@ -720,8 +720,7 @@ bool calibration_function(){
   memcpy(maxVal, _maxVal, sizeof(maxVal));
   memcpy(minVal, _minVal, sizeof(minVal));
   max_avg_error = _max_avg_error;
-  K_p = 0.9 * base_pwm_speed / max_avg_error;
-  K_d = 5 * K_p;
+  setSpd(25);
   //clean sensor value array
   for (int i = 0; i < 8; i++) sensorValues[i] = 0;
   digitalWrite(red_led_pin, LOW);
