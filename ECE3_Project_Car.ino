@@ -47,6 +47,7 @@ int16_t weightVal_blank[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 int16_t weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
 //Official Track
 int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
+//Home test
 // int16_t weightVal_start[8] = {0, -25, -30, 30, 30, 25, 0, 0};
 int16_t weightVal[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 
@@ -119,9 +120,11 @@ uint16_t obstacle_ctr = 0;
 uint16_t crosspiece = 0;
 //prevent black band repetition in obstacle handling
 unsigned long last_milestone_time = 0;
+//scale encoder distance for map under different scale
 float map_factor = 1.1;
+//scale the average speed of the car
 float K_scale = 1.0;
-enum Color {
+enum milestones {
     Start,
     Bar1,
     AtDiscont,
@@ -317,16 +320,9 @@ void loop()
 
   //-------------------------------------------------------------------------------------------------------------
   //Execution
-  if(left_pwm_state < 0){ left_pwm_state = 0; }
-    //digitalWrite(left_dir_pin, HIGH);
-  else{}
-    //digitalWrite(left_dir_pin, LOW);
-
-  if(right_pwm_state < 0){ right_pwm_state = 0; }
-    //digitalWrite(right_dir_pin, HIGH);
-  else{}
-    //digitalWrite(right_dir_pin, LOW);
-
+  //set to 0 if pid result is less than 0
+  if(left_pwm_state < 0) left_pwm_state = 0;
+  if(right_pwm_state < 0) right_pwm_state = 0;        
   analogWrite(left_pwm_pin, left_pwm_state);
   analogWrite(right_pwm_pin, right_pwm_state);
   //-------------------------------------------------------------------------------------------------------------
@@ -336,25 +332,25 @@ void loop()
   //Obstacle Handling
 
   //detect black signal band
-  if( (non_weighted_sum >= 8 * 800 &&                     //detect black band 
-       non_norm_sum < 8 * 2450 &&                         //make sure it is not a crosspiece
-       current_time - last_milestone_time > 1000000 &&    //make sure the black band was not already processed by the obstacle handling algotithm 
+  if( (non_weighted_sum >= 8 * 800 &&                                                  //detect black band 
+       non_norm_sum < 8 * 2450 &&                                                      //make sure it is not a crosspiece
+       current_time - last_milestone_time > 1000000 &&                                 //make sure the black band was not already processed by the obstacle handling algotithm 
        (obstacle_ctr == Bar1 || obstacle_ctr == Bar2 || obstacle_ctr == End))   ||     //make sure the algorithm only check black band when certain obstacle is passed
 
        //(non_weighted_sum <= 8 * 200 && non_norm_sum > 8 * 1) ||                      //for path return algorithm
 
-       (total_enc_cnt >= 90 * map_factor && obstacle_ctr == Start) ||
-       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AtDiscont) ||
-       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AfterDiscont) ||
-       (total_enc_cnt >= 500 * map_factor && obstacle_ctr == Branch) ||     //after the 225 degree band
-       (total_enc_cnt >= 90 * map_factor && obstacle_ctr == AfterBranch) ||     //shortly after branch off
-       (total_enc_cnt >= 115 * map_factor && obstacle_ctr == StartDonut) ||     //after the first timed band
-       (total_enc_cnt >= 82*2 * map_factor && obstacle_ctr == Midway1)   ||     //place hold
-       (total_enc_cnt >= 332*2 * map_factor && obstacle_ctr == Midway2)   ||     //place hold      official: 332      home: 400
-       (total_enc_cnt >= 90*2 * map_factor && obstacle_ctr == EndDonut) ||
-       (total_enc_cnt >= 500 * map_factor&& obstacle_ctr == StartDouble)  ||
-       (total_enc_cnt >= 400 * map_factor&& obstacle_ctr == EndDouble)  ||
-       (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == Origin)  ){     //after the donut and right turn
+       (total_enc_cnt >= 90 * map_factor && obstacle_ctr == Start) ||                  //first 90 degree since start
+       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AtDiscont) ||             //100 degree after the first bar
+       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AfterDiscont) ||          //after the discont
+       (total_enc_cnt >= 500 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
+       (total_enc_cnt >= 90 * map_factor && obstacle_ctr == AfterBranch) ||            //shortly after branch off
+       (total_enc_cnt >= 115 * map_factor && obstacle_ctr == StartDonut) ||            //after second bar, right turn to start donut
+       (total_enc_cnt >= 82*2 * map_factor && obstacle_ctr == Midway1)   ||            //start the donut circle
+       (total_enc_cnt >= 332*2 * map_factor && obstacle_ctr == Midway2)   ||           //end the donut circle      official: 332      home: 400
+       (total_enc_cnt >= 90*2 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut
+       (total_enc_cnt >= 500 * map_factor&& obstacle_ctr == StartDouble)  ||           //start of the double line section
+       (total_enc_cnt >= 400 * map_factor&& obstacle_ctr == EndDouble)  ||             //end of the double line section
+       (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == Origin)  ){                //return to start point
     
     ////for path return algorithm
     // if(non_weighted_sum <= 8 * 200 && non_norm_sum > 8 * 1){
