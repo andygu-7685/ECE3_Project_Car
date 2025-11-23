@@ -76,7 +76,7 @@ int base_pwm_speed = 25;
 //false == left
 bool car_dir = true;
 float avg_error = 0;
-float K_p = 0.9 * base_pwm_speed / max_avg_error;
+float K_p = K_scale * 0.9 * base_pwm_speed / max_avg_error;
 //----------------------------------------------------------------------------------
 
 
@@ -90,7 +90,7 @@ unsigned long delta_time = 0;
 float delta_error = 0;
 float last_error = 0;
 //correction pwm = delta_error * K_d / delta_time
-float K_d = 5 * K_p;
+float K_d = K_scale * 5 * K_p;
 //----------------------------------------------------------------------------------
 
 
@@ -120,6 +120,7 @@ uint16_t crosspiece = 0;
 //prevent black band repetition in obstacle handling
 unsigned long last_milestone_time = 0;
 float map_factor = 1.1;
+float K_scale = 1.0;
 enum Color {
     Start,
     Bar1,
@@ -156,6 +157,7 @@ void setup()
   last_enc_time = micros();
   last_delta_time = micros();
   last_path_time = micros();
+  setSpd(25);
   delay(1000);
 
   pinMode(left_nslp_pin, OUTPUT);
@@ -522,10 +524,10 @@ void loop()
 
 
 void setSpd(int spd, bool _change){
-  base_pwm_speed = spd;
+  base_pwm_speed = K_scale * spd;
   if(_change){
-    K_p = 0.9 * base_pwm_speed / max_avg_error;
-    K_d = 5 * K_p;
+    K_p = K_scale * 0.9 * base_pwm_speed / max_avg_error;
+    K_d = K_scale * 5 * K_p;
   }
 }
 
