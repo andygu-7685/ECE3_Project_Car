@@ -8,13 +8,13 @@ uint16_t sensorValues[8];
 //Lab
 // uint16_t maxVal[8] = {2321,	1835,	1891,	2083,	1770,	1839,	2041,	2329};
 // uint16_t minVal[8] = {721,	630,	723,	747,	653,	698,	749,	821};
-uint16_t maxVal[8] = {1600,	1701,	1827,	1936,	1524,	1875,	1843,	1724	};
-uint16_t minVal[8] = {366,	435,	435,	498,	366,	435,	457,	616	};
-int16_t max_avg_error = 255;
+// uint16_t maxVal[8] = {1600,	1701,	1827,	1936,	1524,	1875,	1843,	1724	};
+// uint16_t minVal[8] = {366,	435,	435,	498,	366,	435,	457,	616	};
+// int16_t max_avg_error = 255;
 //Apartment
-// uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
-// uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
-// int16_t max_avg_error = 248;
+uint16_t maxVal[8] = {2478,	2318,	2219,	2148,	1952,	2338,	2338,	2500};
+uint16_t minVal[8] = {811,	626,	723,	751,	605,	668,	791,	817};
+int16_t max_avg_error = 248;
 //PCC
 //uint16_t maxVal[8] = {2059, 1935, 2013, 2050, 1914, 1871, 1986, 2391};
 //uint16_t minVal[8] = {750, 683, 723, 775, 694, 702, 771,	823};
@@ -37,8 +37,10 @@ int16_t max_avg_error = 255;
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};
 int16_t weightVal_left[8] = {0, 0, 0, -20, -30, 20, 30, 20};       //favor left branch
 int16_t weightVal_right[8] = {-20, -30, -20, 30, 20, 0, 0, 0};       //favor right branch
-int16_t weightVal_left_cent[8] = {0, 0, 0, -5, -10, -20, 20, 15};      //center at left of car
-int16_t weightVal_right_cent[8] = {-15, -20, 20, 10, 5, 0, 0, 0};     //center at right of car
+int16_t weightVal_left_bias[8] = {0, 0, -20, -15, -10, 10, 15, 20};      //center at left of car
+int16_t weightVal_right_bias[8] = {-20, -15, -10, 10, 15, 20, 0, 0};     //center at right of car
+int16_t weightVal_left_cent[8] = {0, 0, 0, 0, -20, -15, 15, 20};      //center at left of car
+int16_t weightVal_right_cent[8] = {-20, -15, 15, 20, 0, 0, 0, 0};     //center at right of car
 int16_t weightVal_left_rot[8] = {0, 0, -10, -8, 8, 12, 14, 15};      //rotation left
 int16_t weightVal_right_rot[8] = {-15, -14, -12, -8, 8, 10, 0, 0};     //rotation right
 int16_t weightVal_concave[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
@@ -48,7 +50,8 @@ int16_t weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
 //Official Track
 int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 //Home test
-// int16_t weightVal_start[8] = {0, -25, -30, 30, 30, 25, 0, 0};
+//int16_t weightVal_start[8] = {0, -25, -30, 32, 32, 27, 0, 0};
+int16_t weightVal_double[8] = {0, 0, -15, -10, 1, 5, 10, 15};
 int16_t weightVal[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 
 const int number_samples = 5;
@@ -56,6 +59,7 @@ const int number_samples = 5;
 //S1 button
 const int right_btn_pin = 73;
 const int red_led_pin = 75;
+float K_scale = 1.6;
 //----------------------------------------------------------------------------------
 
 
@@ -77,7 +81,7 @@ int base_pwm_speed = 25;
 //false == left
 bool car_dir = true;
 float avg_error = 0;
-float K_p = K_scale * 0.9 * base_pwm_speed / max_avg_error;
+float K_p = 0.9 * base_pwm_speed / max_avg_error;
 //----------------------------------------------------------------------------------
 
 
@@ -91,7 +95,7 @@ unsigned long delta_time = 0;
 float delta_error = 0;
 float last_error = 0;
 //correction pwm = delta_error * K_d / delta_time
-float K_d = K_scale * 5 * K_p;
+float K_d = 5 * K_p;
 //----------------------------------------------------------------------------------
 
 
@@ -123,7 +127,6 @@ unsigned long last_milestone_time = 0;
 //scale encoder distance for map under different scale
 float map_factor = 1.1;
 //scale the average speed of the car
-float K_scale = 1.0;
 enum milestones {
     Start,
     Bar1,
@@ -134,7 +137,7 @@ enum milestones {
     Bar2,
     StartDonut,
     Midway1,
-    Midway2,
+    //Midway2,
     EndDonut,
     //Bar3,
     StartDouble,
@@ -160,7 +163,7 @@ void setup()
   last_enc_time = micros();
   last_delta_time = micros();
   last_path_time = micros();
-  setSpd(25);
+  setSpd(16);
   delay(1000);
 
   pinMode(left_nslp_pin, OUTPUT);
@@ -340,16 +343,16 @@ void loop()
        //(non_weighted_sum <= 8 * 200 && non_norm_sum > 8 * 1) ||                      //for path return algorithm
 
        (total_enc_cnt >= 90 * map_factor && obstacle_ctr == Start) ||                  //first 90 degree since start
-       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AtDiscont) ||             //100 degree after the first bar
-       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AfterDiscont) ||          //after the discont
-       (total_enc_cnt >= 500 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
+       (total_enc_cnt >= 299 * map_factor && obstacle_ctr == AtDiscont) ||             //100 degree after the first bar
+       (total_enc_cnt >= 1 * map_factor && obstacle_ctr == AfterDiscont) ||          //after the discont
+       (total_enc_cnt >= 390 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
        (total_enc_cnt >= 90 * map_factor && obstacle_ctr == AfterBranch) ||            //shortly after branch off
-       (total_enc_cnt >= 115 * map_factor && obstacle_ctr == StartDonut) ||            //after second bar, right turn to start donut
-       (total_enc_cnt >= 82*2 * map_factor && obstacle_ctr == Midway1)   ||            //start the donut circle
-       (total_enc_cnt >= 332*2 * map_factor && obstacle_ctr == Midway2)   ||           //end the donut circle      official: 332      home: 400
-       (total_enc_cnt >= 90*2 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut
-       (total_enc_cnt >= 500 * map_factor&& obstacle_ctr == StartDouble)  ||           //start of the double line section
-       (total_enc_cnt >= 400 * map_factor&& obstacle_ctr == EndDouble)  ||             //end of the double line section
+       (total_enc_cnt >= 120 * map_factor && obstacle_ctr == StartDonut) ||            //after second bar, right turn to start donut
+       (total_enc_cnt >= 82*2 * map_factor && obstacle_ctr == Midway1)   ||            //start the donut circle       official: 115
+       //(total_enc_cnt >= 330*2 * map_factor && obstacle_ctr == Midway2)   ||           //end the donut circle      official: 332      home: 400
+       (total_enc_cnt >= 80*2 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut   official: 90
+       (total_enc_cnt >= 600 * map_factor&& obstacle_ctr == StartDouble)  ||           //start of the double line section
+       (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == EndDouble)  ||             //end of the double line section
        (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == Origin)  ){                //return to start point
     
     ////for path return algorithm
@@ -368,7 +371,7 @@ void loop()
     switch(obstacle_ctr){
       case Start:
         memcpy(weightVal, weightVal_start, sizeof(weightVal));
-        setSpd(25);
+        setSpd(16);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
@@ -377,21 +380,21 @@ void loop()
         //reset total encoder count to 0, to get the distance
         //car traveled from the 225 degree band
         //reset milestone time to prevent repetition
-        rotation(base_pwm_speed, -265, true);             //official: -265    home: -275
-        memcpy(weightVal, weightVal_right_cent, sizeof(weightVal));
-        setSpd(20);
+        rotation(base_pwm_speed, -255, true);             //official: -265    home: -275      High Spd:
+        memcpy(weightVal, weightVal_right_bias, sizeof(weightVal));
+        setSpd(15);               //20
         total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
       break;
       case AtDiscont:
-        memcpy(weightVal, weightVal_left, sizeof(weightVal));
-        setSpd(20);
+        memcpy(weightVal, weightVal_left_rot, sizeof(weightVal));
+        setSpd(15);               //20
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case AfterDiscont:
-        memcpy(weightVal, weightVal_right_cent, sizeof(weightVal));
+        memcpy(weightVal, weightVal_right_bias, sizeof(weightVal));
         setSpd(25);
         total_enc_cnt = 0;
         obstacle_ctr++;
@@ -423,26 +426,27 @@ void loop()
         //start rotation 90 degree to the right
         //rotation(base_pwm_speed, 90, false);
         memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
-        setSpd(15, false);
+        setSpd(17, false);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case Midway1:         //first midway: when the car start the donut circle
         //start 360 donut rotation to the left
         //rotation(base_pwm_speed, -360, false);
-        memcpy(weightVal, weightVal_left_rot, sizeof(weightVal));
-        setSpd(15, false);
-        total_enc_cnt = 0;
-        obstacle_ctr++;
-      break;
-      case Midway2:       //second midway: when the car end the donut circle
-        //start 90 degree rotation to the right
-        //rotation(base_pwm_speed, 90, false);
+        //memcpy(weightVal, weightVal_left_rot, sizeof(weightVal));
         memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
-        setSpd(15, false);
+        setSpd(17, false);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
+      // case Midway2:       //second midway: when the car end the donut circle
+      //   //start 90 degree rotation to the right
+      //   //rotation(base_pwm_speed, 90, false);
+      //   memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
+      //   setSpd(15, false);
+      //   total_enc_cnt = 0;
+      //   obstacle_ctr++;
+      // break;
       case EndDonut:       //after donut and right turn
         //switch back to regular weighting mask
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
@@ -451,13 +455,13 @@ void loop()
         obstacle_ctr++;
       break;
       case StartDouble:
-        memcpy(weightVal, weightVal_right_cent, sizeof(weightVal));
+        memcpy(weightVal, weightVal_double, sizeof(weightVal));
         setSpd(25);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case EndDouble:
-        memcpy(weightVal, weightVal_start, sizeof(weightVal));
+        memcpy(weightVal, weightVal_double, sizeof(weightVal));
         setSpd(25);
         total_enc_cnt = 0;
         obstacle_ctr++;
@@ -486,15 +490,15 @@ void loop()
         obstacle_ctr = 0;
       break;
       default:
-        if(!calibration_function()){
-          //blink 5 times if calibration was aborted midway
-          for (unsigned char j = 0; j < 5; j++){
-            digitalWrite(red_led_pin, HIGH);
-            delay(600);
-            digitalWrite(red_led_pin, LOW);
-            delay(600);
-          }
-        }
+        // if(!calibration_function()){
+        //   //blink 5 times if calibration was aborted midway
+        //   for (unsigned char j = 0; j < 5; j++){
+        //     digitalWrite(red_led_pin, HIGH);
+        //     delay(600);
+        //     digitalWrite(red_led_pin, LOW);
+        //     delay(600);
+        //   }
+        // }
       break;
     }
 
@@ -522,8 +526,8 @@ void loop()
 void setSpd(int spd, bool _change){
   base_pwm_speed = K_scale * spd;
   if(_change){
-    K_p = K_scale * 0.9 * base_pwm_speed / max_avg_error;
-    K_d = K_scale * 5 * K_p;
+    K_p = 0.5 * base_pwm_speed / max_avg_error;
+    K_d = 5.5 * K_p;
   }
 }
 
