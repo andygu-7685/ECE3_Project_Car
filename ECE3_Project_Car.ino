@@ -17,9 +17,22 @@ uint16_t crosspiece = 0;
 //prevent black band repetition in obstacle handling
 unsigned long last_milestone_time = 0;
 //scale encoder distance for map under different scale
-float map_factor = 1.0;
+float map_factor = 1.1;
+
+
 //scale the average speed of the car
 float K_scale = 3.0;
+float p_factor = 0.8;
+float d_factor = 10.9;
+int goal_pwm_speed = 0;
+bool change_K = true;
+int16_t graded_bin = 0;
+unsigned long last_graded_time = 0;
+
+
+
+
+
 int ctr = 0;
 enum milestones {
     Start,
@@ -52,14 +65,17 @@ enum milestones {
 //Calibration
 uint16_t sensorValues[8];
 //Lab
-// uint16_t maxVal[8] = {1600,	1701,	1827,	1936,	1524,	1875,	1843,	1724	};
-// uint16_t minVal[8] = {366,	435,	435,	498,	366,	435,	457,	616	};
-// int16_t max_avg_error = 255;
+// uint16_t maxVal[8] = {2031,	1814,	1837,	1910,	1859,	2006,	2223,	2212	};
+// uint16_t minVal[8] = {491,	468,	514,	491,	491,	491,	608,	748};
+// int16_t max_avg_error = 324;
 //Apartment
-uint16_t maxVal[8] = {1599,	1412,	1681,	1532,	1625,	1501,	1699,	1887};
-uint16_t minVal[8] = {522,	527,	524,	425,	450,	404,	547,	651};
-int16_t max_avg_error = 136;
-
+// uint16_t maxVal[8] = {1599,	1412,	1681,	1532,	1625,	1501,	1699,	1887};
+// uint16_t minVal[8] = {522,	527,	524,	425,	450,	404,	547,	651};
+// int16_t max_avg_error = 136;
+//Home
+uint16_t maxVal[8] = {1898,	1688,	1522,	1615,	1313,	1606,	1534,	1703};
+uint16_t minVal[8] = {497,	485,	476,	497,	528,	517,	557,	584};
+int16_t max_avg_error = 278;
 
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};     
 
@@ -92,9 +108,9 @@ int16_t weightVal_blank[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 int16_t weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
 
 //Official Track
-//int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
+int16_t weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 //Home test
-int16_t weightVal_start[8] = {0, -25, -30, 32, 32, 27, 0, 0};
+//int16_t weightVal_start[8] = {0, -25, -30, 32, 32, 27, 0, 0};
 
 int16_t weightVal_double[8] = {0, 0, -15, -10, 7, 12, 17, 22};
 int16_t weightVal[8] = {-25, -25, -25, -25, 25, 25, 25, 25};
@@ -163,7 +179,7 @@ const unsigned long path_bin_len = 500e3;
 
 
 //set speed of the car
-void setSpd(int spd, bool _change = true, bool _scale = true, float p_factor = 0.8, float d_factor = 3.9);
+void setSpd(int spd, bool _change = true, bool _scale = true, float _p_factor = 0.8, float _d_factor = 3.9, int16_t _graded_bin = 0);
 
 
 
@@ -178,6 +194,7 @@ void setup()
   last_enc_time = micros();
   last_delta_time = micros();
   last_path_time = micros();
+  last_graded_time = micros();
   setSpd(13, true, true, 0.1, 3.0);
   delay(1000);
 
@@ -327,6 +344,17 @@ void loop()
   }
 
   //refresh rate calculation
+  if(base_pwm_speed != goal_pwm_speed && current_time - last_graded_time > graded_bin * 1000){
+    if(base_pwm_speed > goal_pwm_speed){
+      setSpd(base_pwm_speed - 1, change_K, false, p_factor, d_factor, -1);
+    }
+    else{
+      setSpd(base_pwm_speed + 1, change_K, false, p_factor, d_factor, -1);
+    }
+    last_graded_time = current_time;
+  }
+  
+  //refresh rate calculation
   // if(current_time - last_path_time > 1 && ctr > 10 && ctr < 100){
   //   Serial.print("||||||||||||||");
   //   Serial.print(current_time - last_path_time);
@@ -393,7 +421,7 @@ void loop()
   //Obstacle Handling
 
   //detect black signal band
-  if( (non_weighted_sum >= 8 * 600 &&                                                  //detect black band 
+  if( (non_weighted_sum >= 8 * 800 &&                                                  //detect black band 
        non_norm_sum < 8 * 2450 &&                                                      //make sure it is not a crosspiece
        current_time - last_milestone_time > 1000000 &&                                 //make sure the black band was not already processed by the obstacle handling algotithm 
        (obstacle_ctr == Bar1 || obstacle_ctr == Bar2 || obstacle_ctr == End))   ||     //make sure the algorithm only check black band when certain obstacle is passed
@@ -425,9 +453,9 @@ void loop()
         //reset total encoder count to 0, to get the distance
         //car traveled from the 225 degree band
         //reset milestone time to prevent repetition
-        rotation(50, -250, true);             //official: -265    home: -275
+        rotation(50, -265, true);             //official: -265    home: -275
         memcpy(weightVal, weightVal_right_bias_u2, sizeof(weightVal));
-        setSpd(30, true, false, 1.0, 40.0);               
+        setSpd(30, true, false, 1.5, 40.0);               
         total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
@@ -440,7 +468,7 @@ void loop()
       break;
       case AfterDiscont:
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-        setSpd(25, true, true, 1.0, 30.9);
+        setSpd(25, true, true, 1.0, 30.9, 15);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
@@ -499,14 +527,14 @@ void loop()
       case EndDonut:       //after donut and right turn
         //switch back to regular weighting mask
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-        setSpd(11, true, true, 1.1, 40.5);
+        setSpd(12, true, true, 1.5, 40.5);
         digitalWrite(right_nslp_pin,HIGH);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case StartDouble:
         memcpy(weightVal, weightVal_double, sizeof(weightVal));
-        setSpd(30, true, true, 0.8, 40.5);
+        setSpd(20, true, true, 1.0, 40.5, 45);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
@@ -554,15 +582,15 @@ void loop()
 
     //for debug purpose
     if(last_milestone_time != current_time){
-      // if(!calibration_function()){
-      //   //blink 5 times if calibration was aborted midway
-      //   for (unsigned char j = 0; j < 1; j++){
-      //     digitalWrite(red_led_pin, HIGH);
-      //     delay(600);
-      //     digitalWrite(red_led_pin, LOW);
-      //     delay(600);
-      //   }
-      // }
+      if(!calibration_function()){
+        //blink 5 times if calibration was aborted midway
+        for (unsigned char j = 0; j < 1; j++){
+          digitalWrite(red_led_pin, HIGH);
+          delay(600);
+          digitalWrite(red_led_pin, LOW);
+          delay(600);
+        }
+      }
     }
     
   }
@@ -571,13 +599,28 @@ void loop()
 
 }
 
-
-
-void setSpd(int spd, bool _change, bool _scale, float p_factor, float d_factor){
-  base_pwm_speed = ((_scale) ? K_scale : 1.0) * spd;
-  if(_change){
-    K_p = p_factor * base_pwm_speed / (4.5 * max_avg_error);
-    K_d = d_factor * K_p / 6.0;
+void setSpd(int spd, bool _change, bool _scale, float _p_factor, float _d_factor, int16_t _graded_bin){
+  if(_graded_bin == 0){
+    base_pwm_speed = ((_scale) ? K_scale : 1.0) * spd;
+    goal_pwm_speed = base_pwm_speed;
+    if(_change){
+      K_p = _p_factor * base_pwm_speed / (4.5 * max_avg_error);
+      K_d = _d_factor * K_p / 6.0;
+    }
+  }
+  else if(_graded_bin > 0){
+    goal_pwm_speed = ((_scale) ? K_scale : 1.0) * spd;
+    p_factor = _p_factor;
+    d_factor = _d_factor;
+    change_K = _change;
+    graded_bin = _graded_bin;
+  }
+  else{
+    base_pwm_speed = ((_scale) ? K_scale : 1.0) * spd;
+    if(_change){
+      K_p = _p_factor * base_pwm_speed / (4.5 * max_avg_error);
+      K_d = _d_factor * K_p / 6.0;
+    }
   }
 }
 
