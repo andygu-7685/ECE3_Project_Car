@@ -89,7 +89,7 @@ float weightVal_flat[8] = {-15, -15, -15, -15, 15, 15, 15, 15};
 float weightVal_blank[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 float weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
 
-float weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
+float weightVal_start[8] = {-25, -25, -25, 15, 25, 25, 25, 0};
 float weightVal_bf_discont[8] = {-17, -15, -13, 6, 10, 13, 15, 16};  
 float weightVal_at_discont[8] = {-13, -12, -10, -6, 10, 14, 16, 17};
 float weightVal_af_discont[8] = {-15, -14, -12, -8, 8, 12, 15, 16};
@@ -418,6 +418,7 @@ void loop()
        (total_enc_cnt >= 60*2 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut   official: 90
        (total_enc_cnt >= 530 * map_factor&& obstacle_ctr == StartDouble)  ||           //start of the double line section
        (total_enc_cnt >= 290 * map_factor&& obstacle_ctr == EndDouble)  ||             //end of the double line section
+       (total_enc_cnt >= 180 * map_factor&& obstacle_ctr == End)  ||
        (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == Origin)  ){                //return to start point
     
 
@@ -435,7 +436,7 @@ void loop()
         //car traveled from the 225 degree band
         //reset milestone time to prevent repetition
 
-        rotation(60, -240, true);             //official: -265    home: -275
+        rotation(60, -230, true);             //official: -265    home: -275
         memcpy(weightVal, weightVal_bf_discont, sizeof(weightVal));
         setSpd(40, true, 0.38, 0.1);               
         total_enc_cnt = 0;
