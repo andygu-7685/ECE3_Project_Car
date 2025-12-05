@@ -65,13 +65,13 @@ uint16_t sensorValues[8];
 // uint16_t minVal[8] = {491,	468,	514,	491,	491,	491,	608,	748};
 // int16_t max_avg_error = 324;
 //Apartment
-// uint16_t maxVal[8] = {1599,	1412,	1681,	1532,	1625,	1501,	1699,	1887};
-// uint16_t minVal[8] = {522,	527,	524,	425,	450,	404,	547,	651};
-// int16_t max_avg_error = 136;
+uint16_t maxVal[8] = {2079,  2169,	2174,	2108,	2055,	2032,	2168,	2387};
+uint16_t minVal[8] = {681,	548,	594,	594,	530,	594,	708,	662};
+int16_t max_avg_error = 188;
 //Home
-uint16_t maxVal[8] = {1908,	1932,	1975,	1956,	2100,	1882,	2075,	1978};
-uint16_t minVal[8] = {560,	467,	467,	421,	444,	508,	560,	700};
-int16_t max_avg_error = 172;
+// uint16_t maxVal[8] = {1908,	1932,	1975,	1956,	2100,	1882,	2075,	1978};
+// uint16_t minVal[8] = {560,	467,	467,	421,	444,	508,	560,	700};
+// int16_t max_avg_error = 172;
 
 //int16_t weightVal[8] = {-8, -4, -2, -1, 1, 2, 4, 8};     
 
@@ -89,9 +89,9 @@ float weightVal_convex[8] = {-8, -12, -14, -15, 15, 14, 12, 8};
 
 float weightVal_start[8] = {-25, -25, -25, 10, 25, 25, 25, 0};
 float weightVal_bf_discont[8] = {-17, -15, -13, 6, 10, 13, 15, 16};  
-float weightVal_at_discont[8] = {-15, -14, -12, -8, 9, 13, 15, 16};
+float weightVal_at_discont[8] = {-13, -12, -10, -6, 10, 14, 16, 17};
 float weightVal_af_discont[8] = {-15, -14, -12, -8, 8, 12, 15, 16};
-float weightVal_double[8] = {0, 0, -15, -10, 2, 7, 12, 17};
+float weightVal_double[8] = {0, 0, -15, -10, 3, 8, 13, 18};
 float weightVal[8] = {-25, -25, -25, -25, 25, 25, 25, 25};
 
 const int number_samples = 5;
@@ -173,8 +173,8 @@ void setup()
   last_path_time = micros();
   last_graded_time = micros();
   
-  memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-  setSpd(25, true, 0.8, 5.0);
+  memcpy(weightVal, weightVal_start, sizeof(weightVal));
+  setSpd(25, true, 0.3, 1.0);
   avg_enc_cnt = 0;
   delay(1000);
 
@@ -403,17 +403,19 @@ void loop()
        non_norm_sum < 8 * 2450 &&                                                      //make sure it is not a crosspiece
        current_time - last_milestone_time > 1000000 &&                                 //make sure the black band was not already processed by the obstacle handling algotithm 
        (obstacle_ctr == Bar1 || obstacle_ctr == Bar2 || obstacle_ctr == End))   ||     //make sure the algorithm only check black band when certain obstacle is passed
+
+       //(current_time > 10500000 && obstacle_ctr == Bar1) ||
        
        (total_enc_cnt >= 120 * map_factor && obstacle_ctr == Start) ||                  //first 90 degree since start
        (total_enc_cnt >= 180 * map_factor && obstacle_ctr == AtDiscont) ||             //100 degree after the first bar
        (total_enc_cnt >= 150 * map_factor && obstacle_ctr == AfterDiscont) ||          //after the discont
-       (total_enc_cnt >= 460 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
-       (total_enc_cnt >= 100 * map_factor && obstacle_ctr == AfterBranch) ||            //shortly after branch off
-       (total_enc_cnt >= 120 * map_factor && obstacle_ctr == StartDonut) ||            //after second bar, right turn to start donut
+       (total_enc_cnt >= 440 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
+       (total_enc_cnt >= 120 * map_factor && obstacle_ctr == AfterBranch) ||            //shortly after branch off
+       (total_enc_cnt >= 140 * map_factor && obstacle_ctr == StartDonut) ||            //after second bar, right turn to start donut
        (total_enc_cnt >= 1 * map_factor && obstacle_ctr == Midway1)   ||            //start the donut circle       official: 115
-       (total_enc_cnt >= 1 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut   official: 90
+       (total_enc_cnt >= 60*2 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut   official: 90
        (total_enc_cnt >= 530 * map_factor&& obstacle_ctr == StartDouble)  ||           //start of the double line section
-       (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == EndDouble)  ||             //end of the double line section
+       (total_enc_cnt >= 290 * map_factor&& obstacle_ctr == EndDouble)  ||             //end of the double line section
        (total_enc_cnt >= 300 * map_factor&& obstacle_ctr == Origin)  ){                //return to start point
     
 
@@ -421,7 +423,7 @@ void loop()
     switch(obstacle_ctr){
       case Start:
         memcpy(weightVal, weightVal_start, sizeof(weightVal));
-        setSpd(40, true, 0.5, 0);
+        setSpd(40, true, 0.5, 0.1);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
@@ -430,22 +432,23 @@ void loop()
         //reset total encoder count to 0, to get the distance
         //car traveled from the 225 degree band
         //reset milestone time to prevent repetition
-        rotation(50, -210, true);             //official: -265    home: -275
+
+        rotation(60, -240, true);             //official: -265    home: -275
         memcpy(weightVal, weightVal_bf_discont, sizeof(weightVal));
-        setSpd(40, true, 0.35, 3.5);               
+        setSpd(40, true, 0.38, 0.1);               
         total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
       break;
       case AtDiscont:
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-        setSpd(40, true, 0.35, 5.0);               
+        setSpd(40, true, 0.38, 0.1);               
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case AfterDiscont:
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-        setSpd(40, true, 0.3, 1.3);
+        setSpd(45, true, 0.35, 1.3);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
@@ -453,13 +456,13 @@ void loop()
         //put on favor left weighting mask, such the car follow the left path
         //rotation(base_pwm_speed, -40, false);
         memcpy(weightVal, weightVal_left, sizeof(weightVal));
-        setSpd(40, true, 0.5, 4.5);
+        setSpd(40, true, 0.34, 0.5);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case AfterBranch:         
         memcpy(weightVal, weightVal_convex, sizeof(weightVal));
-        setSpd(40, true, 0.4, 4.0);
+        setSpd(45, true, 0.4, 4.0);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
@@ -468,14 +471,14 @@ void loop()
         //reset total encoder count to 0, to get the distance
         //car traveled from the first timed band
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-        setSpd(40, true, 0.4, 4.0);
+        setSpd(45, true, 0.4, 4.0);
         total_enc_cnt = 0;
         last_milestone_time = current_time;
         obstacle_ctr++;
       break;
       case StartDonut:         //quarter way: a short distance after first timed band
         //start rotation 90 degree to the right
-        rotation(50, 90, false);
+        rotation(60, 120, false);
         setSpd(40, true, 0.4, 4.0);
         // memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
         // digitalWrite(right_nslp_pin,LOW);
@@ -484,29 +487,29 @@ void loop()
         obstacle_ctr++;
       break;
       case Midway1:         //first midway: when the car start the donut circle
-        rotation(50, 90, false);
-        //memcpy(weightVal, weightVal_right_rot, sizeof(weightVal));
-        //setSpd(10, false, 0.4);
+        //rotation(60, 90, false);
+        memcpy(weightVal, weightVal_right, sizeof(weightVal));
+        setSpd(30, true, 0.4, 0.1);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case EndDonut:       //after donut and right turn
         //switch back to regular weighting mask
         memcpy(weightVal, weightVal_concave, sizeof(weightVal));
-        setSpd(50, true, 0.20, 0, 30);
+        setSpd(55, true, 0.20, 0, 30);
         //digitalWrite(right_nslp_pin,HIGH);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case StartDouble:
         memcpy(weightVal, weightVal_double, sizeof(weightVal));
-        setSpd(50, true, 0.20, 0);
+        setSpd(55, true, 0.20, 0);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
       case EndDouble:
-        memcpy(weightVal, weightVal_double, sizeof(weightVal));
-        setSpd(40, true);
+        memcpy(weightVal, weightVal_left, sizeof(weightVal));
+        setSpd(40, true, 1.2, 0.2);
         total_enc_cnt = 0;
         obstacle_ctr++;
       break;
