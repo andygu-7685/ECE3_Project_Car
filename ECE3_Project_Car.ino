@@ -79,8 +79,10 @@ float weightVal_left_bias_u[8] = {-20, -15, -15, -10, -10, 18, 23, 28};
 float weightVal_right_bias_u[8] = {-28, -23, -18, 10, 10, 15, 15, 20}; 
 float weightVal_left_bias[8] = {0, 0, -15, -15, -15, 15, 15, 15};      
 float weightVal_right_bias[8] = {-15, -15, -15, 15, 15, 15, 0, 0};      
-float weightVal_left[8] = {0, 0.1, 0.1, -20, -10, 10, 20, 30};      
-float weightVal_right[8] = {-30, -20, -10, 10, 20, 0.1, 0.1, 0}; 
+// float weightVal_left[8] = {0, 0.1, 0.1, -20, -10, 10, 20, 30};      
+// float weightVal_right[8] = {-30, -20, -10, 10, 20, 0.1, 0.1, 0}; 
+float weightVal_left[8] = {0, -0.05, -0.1, -5, 8, 12, 14, 15};      
+float weightVal_right[8] = {-15, -14, -12, -8, 5, 0.1, 0.05, 0}; 
 
 float weightVal_concave[8] = {-15, -14, -12, -8, 8, 12, 14, 15};
 float weightVal_flat[8] = {-15, -15, -15, -15, 15, 15, 15, 15};
@@ -409,8 +411,8 @@ void loop()
        (total_enc_cnt >= 120 * map_factor && obstacle_ctr == Start) ||                  //first 90 degree since start
        (total_enc_cnt >= 180 * map_factor && obstacle_ctr == AtDiscont) ||             //100 degree after the first bar
        (total_enc_cnt >= 150 * map_factor && obstacle_ctr == AfterDiscont) ||          //after the discont
-       (total_enc_cnt >= 440 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
-       (total_enc_cnt >= 120 * map_factor && obstacle_ctr == AfterBranch) ||            //shortly after branch off
+       (total_enc_cnt >= 420 * map_factor && obstacle_ctr == Branch) ||                //right at the branch off point
+       (total_enc_cnt >= 140 * map_factor && obstacle_ctr == AfterBranch) ||            //shortly after branch off
        (total_enc_cnt >= 140 * map_factor && obstacle_ctr == StartDonut) ||            //after second bar, right turn to start donut
        (total_enc_cnt >= 1 * map_factor && obstacle_ctr == Midway1)   ||            //start the donut circle       official: 115
        (total_enc_cnt >= 60*2 * map_factor && obstacle_ctr == EndDonut) ||             //right turn after the donut   official: 90
